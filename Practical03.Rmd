@@ -1,14 +1,16 @@
 ---
 title: 'Practical 03 SG: LD and Haplotype estimation'
 author: "Kathryn Weissman & Irene Fernández"
-date: "11/24/2022"
+date: "`r Sys.Date()`"
 output: pdf_document
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+rm(list=ls())
 library(genetics)
 library(HardyWeinberg)
+library(data.table)
 ```
 
 
@@ -30,7 +32,19 @@ position along the chromosome and alleles).
 2. (1p) Load the **FOXP2.dat** file into the R environment. How many individuals and how many SNPs
 are there in the database? What percentage of the data is missing?
 
+* There are 104 individuals in the database.
+* There are 544 SNPs in the database.
+* 0% of the data is missing.
+
 ```{r}
+file <- "~/Downloads/FOXP2/FOXP2.dat"
+data <- fread(file, header = TRUE)
+data[1:10, 1:10]
+```
+```{r}
+n <- nrow(data); n # number of samples
+p <- ncol(data); p # number of variables
+perc.mis <- 100*sum(is.na(data))/(n*p); perc.mis # percentage of missing data overall
 ```
 
 3. (1p) Determine the genotype counts for each SNP, and depict all SNPs simultaeneously in a ternary
