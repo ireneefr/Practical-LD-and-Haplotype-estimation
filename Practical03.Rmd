@@ -86,7 +86,7 @@ rs34684677 and rs2894715 of the database. Is there significant association betwe
 two SNPs?
 
 ```{r}
-
+LD(genotype(data$rs34684677), genotype(data$rs2894715))
 ```
 
 5. (2p) Also compute the LD statistic *D* for the SNPs rs34684677 and rs998302 of the database. Is there
@@ -94,7 +94,7 @@ significant association between these two SNPs? Is there any reason why rs998302
 or weaker correlation than rs2894715?
 
 ```{r}
-
+LD(genotype(data$rs34684677), genotype(data$rs998302))
 ```
 
 6. (2p) Given your previous estimate of *D* for SNPs rs34684677 and rs2894715, infer the haplotype
