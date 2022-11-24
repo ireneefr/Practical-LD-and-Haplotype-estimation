@@ -47,14 +47,38 @@ p <- ncol(data); p # number of variables
 perc.mis <- 100*sum(is.na(data))/(n*p); perc.mis # percentage of missing data overall
 ```
 
-3. (1p) Determine the genotype counts for each SNP, and depict all SNPs simultaeneously in a ternary
+3. (1p) Determine the genotype counts for each SNP, and depict all SNPs simultaneously in a ternary
 plot, and comment on your result. For how many variants do you reject Hardy-Weinberg equilibrium
 using an ordinary chi-square test without continuity correction? (hint: you can read the `.bim` in R
 in order to determine the alleles of each SNP, and use function `MakeCounts` from the `HardyWeinberg`
 package to create a matrix of genotype counts).
 
-```{r}
+* The green dots represent SNPs that are in equilibrium, and the red dots represent SNPs that are out
+of equilibrium.
+in the data set where the B allele frequency is greater than 0.5.
+* Using an ordinary chi-square test we reject Hardy-Weinberg equilibrium for 33 variants.
+* *Note:* In order to create the genotype counts matrix, we create a function similar to the one of the
+anterior practical.
 
+```{r}
+genotype_matrix <- matrix(ncol = 3, nrow = 0, dimnames = list(NULL, c("AA", "AB", "BB")))
+for(i in colnames(data[,-1])){
+snp <- genotype(data[[i]], reorder = "ascii") # reorder is to use as specific order for the alleles
+snp.counts <- c(sum(snp==paste(allele.names(snp)[1], allele.names(snp)[1], sep = "/")),
+                sum(snp==paste(allele.names(snp)[1], allele.names(snp)[2], sep = "/")),
+                sum(snp==paste(allele.names(snp)[2], allele.names(snp)[2], sep = "/")))
+genotype_matrix <- rbind(genotype_matrix, snp.counts)
+}
+rownames(genotype_matrix) <- colnames(data[,-1])
+```
+
+```{r}
+ternaryPlot <- HWTernaryPlot(genotype_matrix)
+```
+
+```{r}
+results_ChiSq <- HWChisqStats(genotype_matrix, pvalues=TRUE)
+sum(results_ChiSq <= .05)
 ```
 
 4. (1p) Using the function `LD` from the `genetics` package, compute the LD statistic *D* for the SNPs
