@@ -12,6 +12,8 @@ library(genetics)
 library(HardyWeinberg)
 library(data.table)
 library(LDheatmap)
+library(knitr)
+library(haplo.stats)
 ```
 
 
@@ -38,7 +40,7 @@ are there in the database? What percentage of the data is missing?
 * 0% of the data is missing.
 
 ```{r}
-file <- "Downloads/FOXP2/FOXP2.dat"
+file <- "~/Downloads/FOXP2.dat"
 data <- fread(file, header = TRUE, index="id")
 data[1:10, 1:10]
 ```
@@ -106,21 +108,24 @@ LD(genotype(data$rs34684677), genotype(data$rs998302))
 6. (2p) Given your previous estimate of *D* for SNPs rs34684677 and rs2894715, infer the haplotype
 frequencies. Which haplotype is the most common?
 
-I don't know if I'm approaching this the right way....
-
-D = pGT − pGpT
-
--0.0549 = pGT - 0.84*0.66
-
-pGT = 0.4995
-
 ```{r}
-?LD
 SNP1 <- genotype(data$rs34684677)
 SNP2 <- genotype(data$rs2894715)
 summary(SNP1)
 summary(SNP2)
+LD_res <- LD(genotype(data$rs34684677), genotype(data$rs2894715))
+
+pA <- summary(SNP1)$allele.freq[,2][1]
+pB <- summary(SNP2)$allele.freq[,2][1]
+pa <- summary(SNP1)$allele.freq[,2][2]
+pb <- summary(SNP2)$allele.freq[,2][2]
+
+pAB <- LD_res$D + pA*pB #D = pAB - pApB
+pab <- LD_res$D + pa*pb #D = pab - papb
 ```
+* The haplotype GT have a frequency of `r pAB`.
+* The haplotype TG have a frequency of `r pab`.
+* As we could observe, the most common haplotype is the GT.
 
 7. (2p) Compute the LD statistics $R^2$ for all the marker pairs in this data base, using the `LD` function of
 the packages `genetics`. Be prepared that this make take a few minutes. Also compute an alternative
@@ -135,32 +140,58 @@ the R environment. Make a scatter plot for R’s LD estimates against PLINK’s 
 identical or do they at least correlate? What’s the difference between these two estimators? Which
 estimator would your prefer and why?
 
+* As the plot shows, the $R^2$ statistics are very similar with a correlation of 0.99. If the results do not differ, we prefer PLINK because is faster in the calculation.
+
 ```{r}
 # Convert one SNP at a time to genotype and save it as a column in dataframe.
-RES <- data.frame(genotype(data[[2]],sep="/"))
-for(i in 3:ncol(data)) {
-   snp <- genotype(data[[i]],sep="/")
-   RES <- cbind(RES,snp)
-}
+# RES <- data.frame(genotype(data[[2]],sep="/"))
+# for(i in 3:ncol(data)) {
+#    snp <- genotype(data[[i]],sep="/")
+#    RES <- cbind(RES,snp)
+# }
 ```
 
 ```{r}
-output <- LD(RES)
+#output <- LD(RES)
 ```
 
 ```{r}
-R2 <- output$"R^2"
+#R2 <- output$"R^2"
 #write.table(R2, file="FOXP2_R2_r.txt", row.names=TRUE, col.names=TRUE)
 ```
 
+```{r}
+R2 <- read.table("FOXP2_R2_r.txt", row.names = NULL)
+#head(R2)
+R2 <- R2[, -1]
+dim(R2)
+R2_plink <- read.table("FOXP2.ld")
+#head(R2_plink)
+dim(R2_plink)
+for(i in 1:ncol(R2_plink)) {
+  for(j in 1:i) {
+    R2_plink[i,j] = NA
+  }
+}
 
+plot(R2[!is.na(R2)], R2_plink[!is.na(R2_plink)])
+cor(R2[!is.na(R2)], R2_plink[!is.na(R2_plink)])
+```
 
 8. (2p) Compute a distance matrix with the distance in base pairs between all possible pairs of SNPs,
 using the basepair position of each SNP given in the `.bim` file. Make a plot of R’s $R^2$ statistics against
 the distance (expressed as the number of basepairs) between the markers. Comment on your results.
 
 ```{r}
+dist_data <- fread("~/Downloads/FOXP2.bim")
+head(dist_data)
+dist_data <- dist_data[match(colnames(data)[-1], dist_data$V2)]
+dist_data <- dist_data[, 4]
+x <- dist(dist_data)
+head(x)
+length(x)
 
+plot(x, t(R2[!is.na(R2)]))
 ```
 
 9. (2p) Make an LD heatmap of the markers in this database, using the $R^2$ statistic with the `LD` function.
@@ -168,19 +199,44 @@ Make another heatmap obtained by filtering out all variants with a MAF below 0.3
 computations to obtain the $R^2$ statistics in R. Can you explain any differences observed between the
 two heatmaps?
 
-```{r}
-?LDheatmap
-rgb.palette <- colorRampPalette(rev(c("blue", "orange", "red")), space = "rgb")
+* In the first LDheatmap there is more uncorrelation in general, this could be because we are keeping those SNPs with lower maf and these SNPs not provide much variation to have a correlation with other SNPs.
 
-LDheatmap(gdat=R2,color=rgb.palette(18))
+```{r}
+RES <- data.frame(genotype(data[[2]],sep="/"))
+for(i in 3:ncol(data)) {
+   snp <- genotype(data[[i]],sep="/")
+   RES <- cbind(RES,snp)
+}
+rgb.palette <- colorRampPalette(rev(c("blue", "orange", "red")), space = "rgb")
+#LDheatmap(gdat=RES,color=rgb.palette(18), LDmeasure = 'r')
+include_graphics("LDheatmap.png", dpi = 200)
+
+maf <- function(x){
+  x <- genotype(x,sep="/")
+  out <- summary(x)
+  af1 <- min(out$allele.freq[,2],na.rm=TRUE)
+  af1[af1==1] <- 0 
+  return(af1)
+}
+mafs <- apply(data[,-1], 2, maf)
+sub_snp <- mafs[mafs > 0.35]
+
+data_maf <- as.data.frame(data)
+data_maf <- data_maf[, names(sub_snp)]
+RES_maf <- data.frame(genotype(data_maf[[1]],sep="/"))
+for(i in 2:ncol(data_maf)) {
+   snp <- genotype(data_maf[[i]],sep="/")
+   RES_maf <- cbind(RES_maf,snp)
+}
+rgb.palette <- colorRampPalette(rev(c("blue", "orange", "red")), space = "rgb")
+#LDheatmap(gdat=RES_maf,color=rgb.palette(18))
+include_graphics("LDheatmap_maf.png", dpi = 200)
 ```
 
 10. (1p) Can you distinguish blocks of correlated markers in the area of the FOXP2 gene? How many blocks
 do you think that *at least* seem to exist?
 
-```{r}
-
-```
+* In the second plot we could distinguish 3 main blocks with high correlation, two of them also being correlated but in a weaker manner.
 
 11. (1p) Simulate independent SNPs under the assumption of Hardy-Weinberg equilibrium, using R’s `sample`
 instruction `sample(c("AA","AB","BB"),n,replace=TRUE,prob=c(p*p,2*p*q,q*q)))`. Simulate as
@@ -189,8 +245,31 @@ a simulated SNP that has the same sample size and allele frequency. Make an LD h
 simulated SNPs, using $R^2$ as your statistic. Compare the results with the LD heatmap of the FOXP2
 region. What do you observe? State your conclusions.
 
-```{r}
+* 
 
+```{r}
+f_sample_data <- function(x) {
+  x = genotype(x, sep = "/")
+  out = summary(x)
+  p = out$allele.freq[1,2]
+  q = out$allele.freq[2,2]
+  A = out$allele.names[1]
+  B = out$allele.names[2]
+  AA = paste(A, A, sep = "/")
+  AB = paste(A, B, sep = "/")
+  BB = paste(B, B, sep = "/")
+  return(sample(c(AA,AB,BB), nrow(data), replace=TRUE, prob=c(p*p,2*p*q,q*q)))
+}
+sample_data = data.frame(apply(as.data.frame(data[,-1]), 2, f_sample_data))
+#head(sample_data)
+
+RES_sample <- data.frame(genotype(sample_data[,1],sep="/"))
+for(i in 2:ncol(sample_data)) {
+  snp <- genotype(sample_data[,i],sep="/")
+  RES_sample <- cbind(RES_sample,snp)
+}
+#LDheatmap(gdat=RES_sample,color=rgb.palette(18), LDmeasure = 'r')
+include_graphics("LDheatmap_sample.png", dpi = 200)
 ```
 
 
@@ -203,50 +282,133 @@ individuals for a set of SNPs in this gene. Load this data into the R environmen
 the corresponding `.bim`, `.fam` and `.bed` files. You can use the `.bim` file to obtain information about
 the alleles of each polymorphism.
 
+```{r}
+rm(list=ls())
+file <- "~/Downloads/APOE.dat"
+data <- as.data.frame(fread(file, header = TRUE))
+data[1:10, 1:10]
+
+data_id <- data$id
+data <- data[,-1]
+```
+
 2. (1p) How many individuals and how many SNPs are there in the database? What percentage of the
 data is missing?
 
-```{r}
+* There are 107 individuals in the database.
+* There are 161 SNPs in the database.
+* 0% of the data is missing.
 
+```{r}
+n <- nrow(data); n # number of samples
+p <- ncol(data); p # number of SNPs - first column is id
+perc.mis <- 100*sum(is.na(data))/(n*p); perc.mis # percentage of missing data overall
 ```
 
 3. (1p) Assuming all SNPs are bi-allelic, how many haplotypes can theoretically be found for this data set?
 
+* Theoretically 5.846007e+48 haplotypes can be found for this dataset.
 ```{r}
-
+2^p
 ```
 
 4. (2p) Estimate haplotype frequencies using the `haplo.stats` package (set the minimum posterior probability
 to 0.001). How many haplotypes do you find? List the estimated probabilities in decreasing order.
 Which haplotype number is the most common?
 
-```{r}
+* We find 31 haplotypes. 
+* The most common haplotype is the number 27.
 
+```{r}
+Geno <- cbind(substr(data[,1],1,1),substr(data[,1],3,3))
+for(i in 2:ncol(data)) {
+  Geno <- cbind(Geno,substr(data[,i],1,1),substr(data[,i],3,3))
+}
+Haplo.Res <- haplo.em(Geno,locus.label=colnames(data),control=haplo.em.control(min.posterior=0.001))
+#Haplo.Res
+Haplo.Res$nreps
+sort(Haplo.Res$hap.prob, decreasing = TRUE)
+which(Haplo.Res$hap.prob == max(Haplo.Res$hap.prob))
 ```
 
 5. (2p) Is the haplotypic constitution of any of the individuals in the database ambiguous or uncertain?
 For how many? What is the most likely haplotypic constitution of individual NA20763? (identify the
 constitution by the corresponding haplotype numbers).
 
-```{r}
+* There are 19 ambiguous constitutions.
+* The most likely haplotypic constitution of individual NA20763 is 8.
 
+```{r}
+sum(Haplo.Res$nreps > 1)
+Haplo.Res$hap1code[which(data_id == "NA20763")]
 ```
 
 6. (1p) Suppose we would delete polymorphism rs374311741 from the database prior to haplotype estimation.
 Would this affect the results obtained? Justify your answer.
 
-```{r}
+* Deleting one polymorphism generates very minimal variations (var = 0.005) in the estimated probabilities and there is still 31 haplotypes.
 
+```{r}
+data_sub <- data[, !(colnames(data) %in% c("rs374311741"))]
+Geno_sub <- cbind(substr(data_sub[,1],1,1),substr(data_sub[,1],3,3))
+for(i in 2:ncol(data_sub)) {
+  Geno_sub <- cbind(Geno_sub,substr(data_sub[,i],1,1),substr(data_sub[,i],3,3))
+}
+Haplo.Res_sub <- haplo.em(Geno_sub,locus.label=colnames(data_sub),control=haplo.em.control(min.posterior=0.001))
+#Haplo.Res_sub
+Haplo.Res_sub$nreps
+var(Haplo.Res_sub$hap.prob, Haplo.Res$hap.prob)
 ```
 
 7. (1p) Remove all genetic variants that have a minor allele frequency below 0.10 from the database, and
 re-run `haplo.em`. How does this affect the number of haplotypes?
 
-```{r}
+* Removing the variants with MAF < 0.10, we only remain with 21 variants. And the number of haplotypes decreases to 8.
 
+```{r}
+maf <- function(x){
+  x <- genotype(x,sep="/")
+  out <- summary(x)
+  af1 <- min(out$allele.freq[,2],na.rm=TRUE)
+  af1[af1==1] <- 0
+  af1
+}
+mafs <- apply(data, 2, maf)
+data_maf <- data[, mafs >= 0.10]
+dim(data_maf)
+
+Geno_maf <- cbind(substr(data_maf[,1],1,1),substr(data_maf[,1],3,3))
+for(i in 2:ncol(data_maf)) {
+  Geno_maf <- cbind(Geno_maf,substr(data_maf[,i],1,1),substr(data_maf[,i],3,3))
+}
+
+Haplo.Res_maf <- haplo.em(Geno_maf,locus.label=colnames(data_maf),control=haplo.em.control(min.posterior=0.001))
+#Haplo.Res_maf
+Haplo.Res_maf$nreps
+Haplo.Res_maf$hap.prob
 ```
 
 8. (2p) We could consider the newly created haplotypes in our last run of `haplo.em` as the alleles of a new
 superlocus. Which is, under the assumption of Hardy-Weinberg equilibrium, the most likely genotype
 at this new locus? What is the probability of this genotype? Which genotype is the second most likely,
 and what is its probability?
+
+* The most likely genotype is the one of the haplotype 36 with probability of 0.38.
+* The second most likely genotype is the one of the haplotype 8 with probability of 0.16.
+
+```{r}
+Haplo.Res_maf$haplotype
+haplotypes <- Haplo.Res_maf$haplotype
+probabilities <- Haplo.Res_maf$hap.prob
+
+haplotype_pairs <- get.hapPair(haplotypes, probabilities, base.index=1)
+
+genotype_prob <- haplotype_pairs$p.g
+genotype1 <- which(genotype_prob == max(genotype_prob))
+genotype2 <- which(genotype_prob == max(genotype_prob[-genotype1]))
+
+haplotype_pairs$x.haplo[genotype1,]
+genotype_prob[genotype1]
+haplotype_pairs$x.haplo[genotype2,]
+genotype_prob[genotype2]
+```
