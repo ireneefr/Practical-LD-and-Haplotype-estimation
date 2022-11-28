@@ -86,6 +86,8 @@ sum(results_ChiSq <= .05)
 rs34684677 and rs2894715 of the database. Is there significant association between the alleles of these
 two SNPs?
 
+Yes, there is association between the alleles because the p-value is small and D' is close to 1.
+
 ```{r}
 LD(genotype(data$rs34684677), genotype(data$rs2894715))
 ```
@@ -93,6 +95,8 @@ LD(genotype(data$rs34684677), genotype(data$rs2894715))
 5. (2p) Also compute the LD statistic *D* for the SNPs rs34684677 and rs998302 of the database. Is there
 significant association between these two SNPs? Is there any reason why rs998302 could have stronger
 or weaker correlation than rs2894715?
+
+These two SNPS are not significantly associated because the p-value is large. rs34684677 and rs998302 may have a weaker correlation because the sites are located further from each other or they don't share any functional relationship.
 
 ```{r}
 LD(genotype(data$rs34684677), genotype(data$rs998302))
