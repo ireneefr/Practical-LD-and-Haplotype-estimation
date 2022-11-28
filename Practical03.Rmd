@@ -11,6 +11,7 @@ rm(list=ls())
 library(genetics)
 library(HardyWeinberg)
 library(data.table)
+library(LDheatmap)
 ```
 
 
@@ -105,8 +106,20 @@ LD(genotype(data$rs34684677), genotype(data$rs998302))
 6. (2p) Given your previous estimate of *D* for SNPs rs34684677 and rs2894715, infer the haplotype
 frequencies. Which haplotype is the most common?
 
-```{r}
+I don't know if I'm approaching this the right way....
 
+D = pGT − pGpT
+
+-0.0549 = pGT - 0.84*0.66
+
+pGT = 0.4995
+
+```{r}
+?LD
+SNP1 <- genotype(data$rs34684677)
+SNP2 <- genotype(data$rs2894715)
+summary(SNP1)
+summary(SNP2)
 ```
 
 7. (2p) Compute the LD statistics $R^2$ for all the marker pairs in this data base, using the `LD` function of
@@ -123,8 +136,24 @@ identical or do they at least correlate? What’s the difference between these t
 estimator would your prefer and why?
 
 ```{r}
-
+# Convert one SNP at a time to genotype and save it as a column in dataframe.
+RES <- data.frame(genotype(data[[2]],sep="/"))
+for(i in 3:ncol(data)) {
+   snp <- genotype(data[[i]],sep="/")
+   RES <- cbind(RES,snp)
+}
 ```
+
+```{r}
+output <- LD(RES)
+```
+
+```{r}
+R2 <- output$"R^2"
+#write.table(R2, file="FOXP2_R2_r.txt", row.names=TRUE, col.names=TRUE)
+```
+
+
 
 8. (2p) Compute a distance matrix with the distance in base pairs between all possible pairs of SNPs,
 using the basepair position of each SNP given in the `.bim` file. Make a plot of R’s $R^2$ statistics against
@@ -140,7 +169,10 @@ computations to obtain the $R^2$ statistics in R. Can you explain any difference
 two heatmaps?
 
 ```{r}
+?LDheatmap
+rgb.palette <- colorRampPalette(rev(c("blue", "orange", "red")), space = "rgb")
 
+LDheatmap(gdat=R2,color=rgb.palette(18))
 ```
 
 10. (1p) Can you distinguish blocks of correlated markers in the area of the FOXP2 gene? How many blocks
