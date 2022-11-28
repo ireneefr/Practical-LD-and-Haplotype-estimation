@@ -33,17 +33,18 @@ position along the chromosome and alleles).
 are there in the database? What percentage of the data is missing?
 
 * There are 104 individuals in the database.
-* There are 544 SNPs in the database.
+* There are 543 SNPs in the database.
 * 0% of the data is missing.
 
 ```{r}
-file <- "~/Downloads/FOXP2/FOXP2.dat"
-data <- fread(file, header = TRUE)
+file <- "Downloads/FOXP2/FOXP2.dat"
+data <- fread(file, header = TRUE, index="id")
 data[1:10, 1:10]
 ```
+
 ```{r}
 n <- nrow(data); n # number of samples
-p <- ncol(data); p # number of variables
+p <- ncol(data) - 1; p # number of SNPs - first column is id
 perc.mis <- 100*sum(is.na(data))/(n*p); perc.mis # percentage of missing data overall
 ```
 
